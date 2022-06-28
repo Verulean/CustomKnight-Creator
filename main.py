@@ -3,7 +3,7 @@ This module implements the user interface functionality for CustomKnight Creator
 """
 from os import makedirs
 from pathlib import Path
-from spritehandler import SpriteHandler
+from SpriteHandler import SpriteHandler
 from typing import Callable, Optional, Union, cast
 import json
 import sys
