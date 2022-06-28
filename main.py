@@ -343,7 +343,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                 self.load_categories()
                 if enabled is not None:
-                    self.collections = enabled
+                    self.collections.update(enabled)
                 self.update_collection_states()
                 self.load_animations()
             if out_path is not None:
