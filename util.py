@@ -1,5 +1,5 @@
 from math import ceil, log2
-from typing import Callable, Iterable, TypeVar
+from typing import Callable, Iterable, TypeVar, cast
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -18,4 +18,4 @@ def first(seq: Iterable[T], condition: Callable[[T], bool] = lambda x: True) -> 
 
 
 def min_dimension(l: int) -> int:
-    return 2 ** ceil(log2(l - 1))
+    return cast(int, 2 ** ceil(log2(l - 1)))

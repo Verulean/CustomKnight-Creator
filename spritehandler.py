@@ -68,7 +68,7 @@ class SpriteHandler:
             return {
                 image_hash: loaded_sprites
                 for image_hash in self.duplicates
-                if (loaded_sprites := self.sorted_duplicates(image_hash))
+                if len(loaded_sprites := self.sorted_duplicates(image_hash)) > 1
             }
         else:
             d = {}
@@ -80,7 +80,7 @@ class SpriteHandler:
                         if path in dups
                     )
                     loaded_sprites = self.sorted_duplicates(image_hash)
-                    if loaded_sprites:
+                    if len(loaded_sprites) > 1:
                         d[image_hash] = loaded_sprites
                 except StopIteration:
                     continue
@@ -98,9 +98,7 @@ class SpriteHandler:
         return [self.__sprites[i].path.name for i in self.__s_by_animation[animation]]
 
     def pack_sheets(
-        self,
-        collections: dict[str, bool],
-        output_path: Optional[Path] = None,
+        self, collections: dict[str, bool], output_path: Optional[Path] = None,
     ) -> bool:
         if output_path is None:
             output_path = self.base_path
