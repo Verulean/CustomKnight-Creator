@@ -173,8 +173,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     ) -> None:
         if current is None:
             return
+        curr_anim = self.listWidget_3.currentItem().text()
+        curr_sprite = current.text()
         self.update_preview(
-            str(next(self.sprite_handler.search_sprites(current.text())))
+            next(self.sprite_handler.search_sprites(curr_anim, curr_sprite))
         )
 
     def pack_sprites(self) -> None:

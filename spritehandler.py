@@ -160,7 +160,6 @@ class SpriteHandler:
         def order_by_modification(file: Path) -> int:
             if file not in self.__sprites:
                 return 2
-            sprite = self.__sprites[file]
             image_hash = str(self.__sprites[file].image_hash)
             return 1 if image_hash == vanilla_hash else 0
 
@@ -182,8 +181,8 @@ class SpriteHandler:
                 return False
         return True
 
-    def search_sprites(self, sprite_name: str) -> Iterable[Path]:
-        for path, sprite in self.__sprites.items():
+    def search_sprites(self, animation_name: str, sprite_name: str) -> Iterable[Path]:
+        for path in self.__s_by_animation[animation_name]:
             if sprite_name in str(path):
                 yield path
 
