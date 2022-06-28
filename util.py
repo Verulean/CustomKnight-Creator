@@ -13,7 +13,7 @@ def lmap(func: Callable[[T], U], seq: Iterable[T]) -> list[U]:
     return list(map(func, seq))
 
 
-def first(seq: Iterable[T], condition: Callable[[T], bool]) -> T:
+def first(seq: Iterable[T], condition: Callable[[T], bool] = lambda x: True) -> T:
     return next(x for x in seq if condition(x))
 
 

@@ -176,7 +176,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         curr_anim = self.listWidget_3.currentItem().text()
         curr_sprite = current.text()
         self.update_preview(
-            next(self.sprite_handler.search_sprites(curr_anim, curr_sprite))
+            util.first(self.sprite_handler.search_sprites(curr_anim, curr_sprite))
         )
 
     def pack_sprites(self) -> None:
@@ -376,7 +376,7 @@ class WizardDialog(QDialog, Ui_Dialog):
         super().__init__()
         # s = perf_counter()
         self.setupUi(self)
-        self.parent = parent
+        self.parent: MainWindow = parent
         self.parent.sprite_handler.load_duplicate_info()
         self.duplicates = self.parent.sprite_handler.get_duplicates(animation)
         self.duplicatesWidget.addItems(self.duplicates.keys())
