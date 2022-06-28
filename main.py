@@ -1,6 +1,3 @@
-from time import perf_counter
-
-
 from os import makedirs
 from pathlib import Path
 from spritehandler import SpriteHandler
@@ -374,7 +371,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 class WizardDialog(QDialog, Ui_Dialog):
     def __init__(self, animation: str, parent: MainWindow) -> None:
         super().__init__()
-        # s = perf_counter()
         self.setupUi(self)
         self.parent_window = parent
         self.parent_window.sprite_handler.load_duplicate_info()
@@ -383,11 +379,8 @@ class WizardDialog(QDialog, Ui_Dialog):
         self.update_frames(self.duplicatesWidget.currentItem(), None)
         self.update_preview(self.listWidget.currentItem(), None)
         self.update_completion()
-        # t = perf_counter() - s
-        # print(f"Duplicate wizard initialization took {t:.4f}s.")
 
     def select_main_copy(self) -> None:
-        # s = perf_counter()
         curr_dupe_menu = self.duplicatesWidget.currentItem()
         curr_dupe_file = self.listWidget.currentItem()
         if curr_dupe_menu and curr_dupe_file:
@@ -398,11 +391,8 @@ class WizardDialog(QDialog, Ui_Dialog):
             self.parent_window.infoBox.appendPlainText(
                 "Duplicates replaced with selected sprite."
             )
-        # t = perf_counter() - s
-        # print(f"Select main copy took {t:.4f}s.")
 
     def autoreplace_all(self) -> None:
-        # s = perf_counter()
         for i in range(self.duplicatesWidget.count()):
             vanilla_hash = self.duplicatesWidget.item(i).text()
             sprite = self.parent_window.sprite_handler[
@@ -417,8 +407,6 @@ class WizardDialog(QDialog, Ui_Dialog):
         self.parent_window.infoBox.appendPlainText(
             "All changed sprites have been copied to their duplicates."
         )
-        # t = perf_counter() - s
-        # print(f"Autoreplace all took {t:.4f}s.")
 
     def update_preview(
         self, current: Optional[QListWidgetItem], previous: Optional[QListWidgetItem]
