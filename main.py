@@ -318,10 +318,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             save_data = json.load(f)
             if save_data["openFolders"]:
                 self.listWidget.addItems(save_data["openFolders"])
+                self.root_folders = save_data["openFolders"]
                 self.sprite_handler.sprite_path = Path(
                     save_data["openFolders"][0]
                 ).parent
-                self.load_collections()
+                self.load_categories()
                 # for category in save_data["enabledCategories"]:
                 #     self.sprite_handler.collections[category] = save_data[
                 #         "enabledCategories"
