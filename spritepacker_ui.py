@@ -203,7 +203,7 @@ class Ui_MainWindow(object):
         self.pushButton_5.clicked.connect(MainWindow.animation_duplicates) # type: ignore
         self.playAnimationButton.clicked.connect(MainWindow.play_animation) # type: ignore
         self.animationFilter.textChanged['QString'].connect(MainWindow.filter_animations) # type: ignore
-        self.lineEdit.textChanged['QString'].connect(MainWindow.update_output_path) # type: ignore
+        self.lineEdit.editingFinished.connect(MainWindow.update_output_path) # type: ignore
         self.autoplayAnimation.stateChanged['int'].connect(MainWindow.update_autoplay) # type: ignore
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 

@@ -3,9 +3,8 @@ from itertools import starmap
 from pathlib import Path
 from PIL import Image
 from Sprite import Sprite
-from typing import Iterable, Optional, Union
+from typing import Iterable, Optional
 import json
-import math
 import util
 
 
@@ -15,7 +14,7 @@ class SpriteHandler:
     ) -> None:
         self.collections: dict[str, bool] = {}
         self.base_path: Path = Path(__file__).parent if base_path is None else base_path
-        self.sprite_path: Optional[Path] = sprite_path
+        self.sprite_path: Path = Path("") if sprite_path is None else sprite_path
         self.__sprites: dict[Path, Sprite] = {}
         self.__s_by_collection: dict[str, list[Path]] = defaultdict(list)
         self.__s_by_animation: dict[str, list[Path]] = defaultdict(list)
@@ -200,4 +199,8 @@ class SpriteHandler:
 
     @property
     def animations(self) -> Iterable[str]:
-        return self.__s_by_animation.keys()
+        return (
+            anim
+            for anim, paths in self.__s_by_animation.items()
+            if any(self.collections[self.__sprites[path].collection] for path in paths)
+        )

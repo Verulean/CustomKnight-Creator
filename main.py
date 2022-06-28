@@ -3,15 +3,11 @@ from time import perf_counter
 
 from os import makedirs
 from pathlib import Path
-
-# from PIL import Image
-# from Sprite import Sprite
-from SpriteHandler import SpriteHandler
-from typing import Optional, Union
+from spritehandler import SpriteHandler
+from typing import Iterable, Optional, Union
 import json
 import sys
-
-# import util
+import util
 
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtWidgets import (
@@ -45,7 +41,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         super().__init__()
         self.root_folders: list[Path] = []
         self.collections: dict[str, bool] = {}
-        self.sprite_path: Path = Path("")
         self.base_path: Path = Path(__file__).parent
         self.output_path: Path = Path(__file__).parent
         self.sprite_handler = SpriteHandler()
@@ -67,8 +62,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self,
             'Select a base level animations folder (e.g. "Knight")',
             str(
-                self.sprite_path.resolve()
-                if self.sprite_path != Path("")
+                self.sprite_handler.sprite_path.resolve()
+                if self.sprite_handler.sprite_path != Path("")
                 else Path.home()
             ),
             QFileDialog.Option.ShowDirsOnly,
@@ -87,10 +82,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             return
 
         if not self.root_folders:
-            self.sprite_path = selected_path.parent
-            self.sprite_handler.sprite_path = self.sprite_path
+            self.sprite_handler.sprite_path = selected_path.parent
 
-        elif selected_path.parent != self.sprite_path:
+        elif selected_path.parent != self.sprite_handler.sprite_path:
             QMessageBox.warning(
                 self,
                 "Inconsistent Base Path",
@@ -102,8 +96,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             )
             return
 
-        self.root_folders.append(selected_path)
-        self.listWidget.addItem(QListWidgetItem(str(selected_path)))
+        self.root_folders.append(selected_path.name)
+        self.listWidget.addItem(QListWidgetItem(selected_path.name))
         self.update_saved_state()
 
     def remove_root_folder(self) -> None:
@@ -116,6 +110,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.sprite_handler.collections[collection_name] = state
             collection.setBackground(self.brushes[state])
             collection.setIcon(self.icons[state])
+        self.update_saved_state()
 
     def enable_category(self) -> None:
         self.set_collection_state(True)
@@ -124,18 +119,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.set_collection_state(False)
 
     def load_categories(self) -> None:
-        collections = self.sprite_handler.load_sprite_info(
-            Path.joinpath(
-                self.sprite_path,
-                self.listWidget.item(i).text(),
-                "0.Atlases",
-                "SpriteInfo.json",
+        if not self.sprite_handler.collections:
+            self.sprite_handler.load_sprite_info(
+                Path.joinpath(
+                    self.sprite_handler.sprite_path,
+                    self.listWidget.item(i).text(),
+                    "0.Atlases",
+                    "SpriteInfo.json",
+                )
+                for i in range(self.listWidget.count())
             )
-            for i in range(self.listWidget.count())
-        )
 
         self.listWidget_2.clear()
-        self.listWidget_2.addItems(collections)
+        self.listWidget_2.addItems(self.sprite_handler.collections)
         self.update_collection_states()
         self.infoBox.appendPlainText("Categories loaded.")
 
@@ -316,28 +312,42 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             if save_path.stat().st_size == 0:
                 return
             save_data = json.load(f)
-            if save_data["openFolders"]:
-                self.listWidget.addItems(save_data["openFolders"])
-                self.root_folders = save_data["openFolders"]
-                self.sprite_handler.sprite_path = Path(
-                    save_data["openFolders"][0]
-                ).parent
+
+            sprite_path = save_data.get("spritePath", None)
+            open_folders = save_data.get("openFolders", None)
+            enabled = save_data.get("enabledCategories", None)
+            out_path = save_data.get("outputFolder", None)
+
+            if sprite_path is not None:
+                self.sprite_handler.sprite_path = Path(sprite_path)
+            if open_folders:
+                self.root_folders = open_folders
+
+                root_paths = util.lmap(Path, open_folders)
+                self.listWidget.addItems(p.name for p in root_paths)
+                self.sprite_handler.load_sprite_info(
+                    self.sprite_handler.sprite_path.joinpath(
+                        f, "0.Atlases", "SpriteInfo.json"
+                    )
+                    for f in root_paths
+                )
+
+                if enabled is not None:
+                    self.sprite_handler.collections = enabled
                 self.load_categories()
-                # for category in save_data["enabledCategories"]:
-                #     self.sprite_handler.collections[category] = save_data[
-                #         "enabledCategories"
-                #     ][category]
-                self.sprite_handler.collections = save_data["enabledCategories"]
                 self.update_collection_states()
                 self.load_animations()
-            if save_data["outputFolder"]:
-                self.output_path = Path(save_data["outputFolder"])
-                self.lineEdit.setText(save_data["outputFolder"])
+            if out_path is not None:
+                self.output_path = Path(out_path)
+                self.lineEdit.setText(out_path)
+
+        self.update_saved_state()
 
     def update_saved_state(self) -> None:
         new_state = json.dumps(
             {
-                "openFolders": list(map(str, self.root_folders)),
+                "spritePath": str(self.sprite_handler.sprite_path),
+                "openFolders": util.lmap(str, self.root_folders),
                 "enabledCategories": self.sprite_handler.collections,
                 "outputFolder": str(self.output_path),
             }
