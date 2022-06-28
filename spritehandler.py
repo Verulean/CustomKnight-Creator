@@ -63,7 +63,7 @@ class SpriteHandler:
             for image_hash, dups in json.load(open(info_path, encoding="utf-8")).items()
         }
 
-    def get_duplicates(self, animation_name: str) -> dict[str, list[str]]:
+    def get_duplicates(self, animation_name: str) -> dict[str, list[Path]]:
         if not animation_name:
             return {
                 image_hash: loaded_sprites
@@ -94,7 +94,7 @@ class SpriteHandler:
             self.__s_by_collection[sprite.collection].append(path)
             self.__s_by_animation[sprite.animation].append(path)
 
-    def get_animation_sprites(self, animation: str) -> list[Sprite]:
+    def get_animation_sprites(self, animation: str) -> list[str]:
         return [self.__sprites[i].path.name for i in self.__s_by_animation[animation]]
 
     def pack_sheets(
@@ -168,7 +168,7 @@ class SpriteHandler:
             key=order_by_modification,
         )
 
-    def check_completion(self, duplicates: list[Path], vanilla_hash: str) -> bool:
+    def check_completion(self, duplicates: Iterable[Path], vanilla_hash: str) -> bool:
         prev_hash = ""
         for path in map(self.sprite_path.joinpath, duplicates):
             if path not in self.__sprites:

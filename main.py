@@ -39,7 +39,7 @@ def make_icon(path: Path) -> QtGui.QIcon:
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.root_folders: list[Path] = []
+        self.root_folders: list[str] = []
         self.collections: dict[str, bool] = {}
         self.base_path: Path = Path(__file__).parent
         self.output_path: Path = Path(__file__).parent
@@ -206,7 +206,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.infoBox.repaint()
         self.animationFilter.setText("")
         self.filter_animations()
-        packed = self.sprite_handler.pack_sheets(output_path=self.output_path)
+        packed = self.sprite_handler.pack_sheets(
+            self.collections, output_path=self.output_path
+        )
         if not packed:
             QMessageBox.warning(
                 self,
@@ -372,7 +374,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 class WizardDialog(QDialog, Ui_Dialog):
     def __init__(self, animation: str, parent: MainWindow) -> None:
         super().__init__()
-        s = perf_counter()
+        # s = perf_counter()
         self.setupUi(self)
         self.parent = parent
         self.parent.sprite_handler.load_duplicate_info()
@@ -381,11 +383,11 @@ class WizardDialog(QDialog, Ui_Dialog):
         self.update_frames(self.duplicatesWidget.currentItem(), None)
         self.update_preview(self.listWidget.currentItem(), None)
         self.update_completion()
-        t = perf_counter() - s
-        print(f"Duplicate wizard initialization took {t:.4f}s.")
+        # t = perf_counter() - s
+        # print(f"Duplicate wizard initialization took {t:.4f}s.")
 
     def select_main_copy(self) -> None:
-        s = perf_counter()
+        # s = perf_counter()
         curr_dupe_menu = self.duplicatesWidget.currentItem()
         curr_dupe_file = self.listWidget.currentItem()
         if curr_dupe_menu and curr_dupe_file:
@@ -396,11 +398,11 @@ class WizardDialog(QDialog, Ui_Dialog):
             self.parent.infoBox.appendPlainText(
                 "Duplicates replaced with selected sprite."
             )
-        t = perf_counter() - s
-        print(f"Select main copy took {t:.4f}s.")
+        # t = perf_counter() - s
+        # print(f"Select main copy took {t:.4f}s.")
 
     def autoreplace_all(self) -> None:
-        s = perf_counter()
+        # s = perf_counter()
         for i in range(self.duplicatesWidget.count()):
             vanilla_hash = self.duplicatesWidget.item(i).text()
             sprite = self.parent.sprite_handler[
@@ -415,8 +417,8 @@ class WizardDialog(QDialog, Ui_Dialog):
         self.parent.infoBox.appendPlainText(
             "All changed sprites have been copied to their duplicates."
         )
-        t = perf_counter() - s
-        print(f"Autoreplace all took {t:.4f}s.")
+        # t = perf_counter() - s
+        # print(f"Autoreplace all took {t:.4f}s.")
 
     def update_preview(
         self, current: Optional[QListWidgetItem], previous: Optional[QListWidgetItem]
@@ -445,18 +447,13 @@ class WizardDialog(QDialog, Ui_Dialog):
         self.listWidget.setCurrentRow(0)
 
     def update_completion(
-        self, item_index: Optional[Union[int, QModelIndex]] = None, time=True
+        self, item_index: Optional[Union[int, QModelIndex]] = None
     ) -> None:
         if item_index is None:
-            s = perf_counter()
             for i in range(self.duplicatesWidget.count()):
                 self.update_completion(i, False)
-            t = perf_counter() - s
-            print(f"Update took {t:.3f} seconds.")
             return None
 
-        if time:
-            s = perf_counter()
         if isinstance(item_index, int):
             item = self.duplicatesWidget.item(item_index)
         else:
@@ -469,10 +466,6 @@ class WizardDialog(QDialog, Ui_Dialog):
         )
         item.setBackground(self.parent.brushes[complete])
         item.setIcon(self.parent.icons[complete])
-
-        if time:
-            t = perf_counter() - s
-            print(f"Single update took {t:.3f} seconds.")
 
 
 if __name__ == "__main__":
