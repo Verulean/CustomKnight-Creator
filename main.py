@@ -451,7 +451,7 @@ class WizardDialog(QDialog, Ui_Dialog):
     ) -> None:
         if item_index is None:
             for i in range(self.duplicatesWidget.count()):
-                self.update_completion(i, False)
+                self.update_completion(i)
             return None
 
         if isinstance(item_index, int):
