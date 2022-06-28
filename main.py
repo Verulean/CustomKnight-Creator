@@ -376,9 +376,9 @@ class WizardDialog(QDialog, Ui_Dialog):
         super().__init__()
         # s = perf_counter()
         self.setupUi(self)
-        self.parent: MainWindow = parent
-        self.parent.sprite_handler.load_duplicate_info()
-        self.duplicates = self.parent.sprite_handler.get_duplicates(animation)
+        self.parent_window = parent
+        self.parent_window.sprite_handler.load_duplicate_info()
+        self.duplicates = self.parent_window.sprite_handler.get_duplicates(animation)
         self.duplicatesWidget.addItems(self.duplicates.keys())
         self.update_frames(self.duplicatesWidget.currentItem(), None)
         self.update_preview(self.listWidget.currentItem(), None)
@@ -391,11 +391,11 @@ class WizardDialog(QDialog, Ui_Dialog):
         curr_dupe_menu = self.duplicatesWidget.currentItem()
         curr_dupe_file = self.listWidget.currentItem()
         if curr_dupe_menu and curr_dupe_file:
-            self.parent.sprite_handler.propagate_main_copy(
+            self.parent_window.sprite_handler.propagate_main_copy(
                 curr_dupe_menu.text(), Path(curr_dupe_file.text())
             )
             self.update_completion(self.duplicatesWidget.indexFromItem(curr_dupe_menu))
-            self.parent.infoBox.appendPlainText(
+            self.parent_window.infoBox.appendPlainText(
                 "Duplicates replaced with selected sprite."
             )
         # t = perf_counter() - s
@@ -405,16 +405,16 @@ class WizardDialog(QDialog, Ui_Dialog):
         # s = perf_counter()
         for i in range(self.duplicatesWidget.count()):
             vanilla_hash = self.duplicatesWidget.item(i).text()
-            sprite = self.parent.sprite_handler[
+            sprite = self.parent_window.sprite_handler[
                 max(self.duplicates[vanilla_hash], key=lambda p: p.stat().st_mtime)
             ]
             new_hash = str(sprite.image_hash)
             if new_hash != vanilla_hash:
-                self.parent.sprite_handler.propagate_main_copy(
+                self.parent_window.sprite_handler.propagate_main_copy(
                     vanilla_hash, sprite.path
                 )
                 self.update_completion(i)
-        self.parent.infoBox.appendPlainText(
+        self.parent_window.infoBox.appendPlainText(
             "All changed sprites have been copied to their duplicates."
         )
         # t = perf_counter() - s
@@ -428,7 +428,7 @@ class WizardDialog(QDialog, Ui_Dialog):
         width = self.preview.width()
         height = self.preview.height()
         pixmap = QtGui.QPixmap(
-            str(self.parent.sprite_handler.sprite_path.joinpath(current.text()))
+            str(self.parent_window.sprite_handler.sprite_path.joinpath(current.text()))
         )
         pixmap = pixmap.scaled(width, height, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
         self.preview.setPixmap(pixmap)
@@ -442,7 +442,9 @@ class WizardDialog(QDialog, Ui_Dialog):
             return
         self.listWidget.clear()
         current_item = self.duplicatesWidget.currentItem().text()
-        sorted_duplicates = self.parent.sprite_handler.sorted_duplicates(current_item)
+        sorted_duplicates = self.parent_window.sprite_handler.sorted_duplicates(
+            current_item
+        )
         self.listWidget.addItems(map(str, sorted_duplicates))
         self.listWidget.setCurrentRow(0)
 
@@ -459,13 +461,13 @@ class WizardDialog(QDialog, Ui_Dialog):
         else:
             item = self.duplicatesWidget.itemFromIndex(item_index)
         current_item = item.text()
-        sorted_duplicates = self.parent.sprite_handler.duplicates[current_item]
+        sorted_duplicates = self.parent_window.sprite_handler.duplicates[current_item]
 
-        complete = self.parent.sprite_handler.check_completion(
+        complete = self.parent_window.sprite_handler.check_completion(
             sorted_duplicates, current_item
         )
-        item.setBackground(self.parent.brushes[complete])
-        item.setIcon(self.parent.icons[complete])
+        item.setBackground(self.parent_window.brushes[complete])
+        item.setIcon(self.parent_window.icons[complete])
 
 
 if __name__ == "__main__":
