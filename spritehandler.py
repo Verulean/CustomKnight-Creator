@@ -12,7 +12,6 @@ class SpriteHandler:
     def __init__(
         self, *, base_path: Optional[Path] = None, sprite_path: Optional[Path] = None
     ) -> None:
-        self.collections: dict[str, bool] = {}
         self.base_path: Path = Path(__file__).parent if base_path is None else base_path
         self.sprite_path: Path = Path("") if sprite_path is None else sprite_path
         self.__sprites: dict[Path, Sprite] = {}
@@ -24,8 +23,6 @@ class SpriteHandler:
         return self.__sprites[index]
 
     def load_sprite_info(self, paths: Iterable[Path]) -> list[str]:
-        self.collections.clear()
-
         raw_data: list[dict[str, list[str]]] = []
         collections = set()
         for path in paths:
@@ -35,8 +32,6 @@ class SpriteHandler:
                 data = json.load(f)
             raw_data.append(data)
             collections.update(data["scollectionname"])
-        for collection in collections:
-            self.collections[collection] = True
 
         self.__sprites = {
             sprite.path: sprite
@@ -59,7 +54,7 @@ class SpriteHandler:
         }
         self.__populate_sprites()
 
-        return sorted(self.collections)
+        return sorted(collections)
 
     def load_duplicate_info(self) -> None:
         info_path = self.base_path.joinpath("resources", "duplicatedata.json")
@@ -104,18 +99,15 @@ class SpriteHandler:
 
     def pack_sheets(
         self,
-        collections: Optional[Iterable[str]] = None,
+        collections: dict[str, bool],
         output_path: Optional[Path] = None,
     ) -> bool:
-        if collections is None:
-            collections = self.collections.keys()
         if output_path is None:
             output_path = self.base_path
 
-        for collection_name in collections:
-            if not self.collections[collection_name]:
+        for collection_name, enabled in collections.items():
+            if not enabled:
                 continue
-
             max_width = 0
             max_height = 0
             for sprite_id in self.__s_by_collection[collection_name]:
@@ -169,8 +161,6 @@ class SpriteHandler:
             if file not in self.__sprites:
                 return 2
             sprite = self.__sprites[file]
-            if not self.collections[sprite.collection]:
-                return 2
             image_hash = str(self.__sprites[file].image_hash)
             return 1 if image_hash == vanilla_hash else 0
 
@@ -197,10 +187,12 @@ class SpriteHandler:
             if sprite_name in str(path):
                 yield path
 
-    @property
-    def animations(self) -> Iterable[str]:
+    def loaded_animations(self, collections: dict[str, bool]) -> Iterable[str]:
         return (
             anim
             for anim, paths in self.__s_by_animation.items()
-            if any(self.collections[self.__sprites[path].collection] for path in paths)
+            if any(
+                collections.get(self.__sprites[path].collection, False)
+                for path in paths
+            )
         )

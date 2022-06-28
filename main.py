@@ -101,13 +101,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.update_saved_state()
 
     def remove_root_folder(self) -> None:
-        self.listWidget.takeItem(self.listWidget.currentRow())
+        taken = self.listWidget.takeItem(self.listWidget.currentRow())
+        if taken is not None:
+            self.root_folders.remove(taken.text())
         self.update_saved_state()
 
     def set_collection_state(self, state: bool) -> None:
         for collection in self.listWidget_2.selectedItems():
             collection_name = collection.text()
-            self.sprite_handler.collections[collection_name] = state
+            # self.sprite_handler.collections[collection_name] = state
+            self.collections[collection_name] = state
             collection.setBackground(self.brushes[state])
             collection.setIcon(self.icons[state])
         self.update_saved_state()
@@ -119,24 +122,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.set_collection_state(False)
 
     def load_categories(self) -> None:
-        if not self.sprite_handler.collections:
-            self.sprite_handler.load_sprite_info(
-                Path.joinpath(
-                    self.sprite_handler.sprite_path,
-                    self.listWidget.item(i).text(),
-                    "0.Atlases",
-                    "SpriteInfo.json",
-                )
-                for i in range(self.listWidget.count())
+        self.collections.clear()
+        loaded = self.sprite_handler.load_sprite_info(
+            Path.joinpath(
+                self.sprite_handler.sprite_path,
+                self.listWidget.item(i).text(),
+                "0.Atlases",
+                "SpriteInfo.json",
             )
+            for i in range(self.listWidget.count())
+        )
+        for collection in loaded:
+            self.collections[collection] = True
 
         self.listWidget_2.clear()
-        self.listWidget_2.addItems(self.sprite_handler.collections)
+        self.listWidget_2.addItems(self.collections)
         self.update_collection_states()
         self.infoBox.appendPlainText("Categories loaded.")
 
     def update_collection_states(self) -> None:
-        for collection, enabled in self.sprite_handler.collections.items():
+        for collection, enabled in self.collections.items():
             item = self.listWidget_2.findItems(
                 collection, QtCore.Qt.MatchFlag.MatchExactly
             )[0]
@@ -145,7 +150,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def load_animations(self) -> None:
         self.listWidget_3.clear()
-        self.listWidget_3.addItems(self.sprite_handler.animations)
+        self.listWidget_3.addItems(
+            self.sprite_handler.loaded_animations(self.collections)
+        )
         self.listWidget_4.clear()
         self.listWidget_3.setCurrentRow(0)
         self.infoBox.appendPlainText("Animations loaded.")
@@ -332,9 +339,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     for f in root_paths
                 )
 
-                if enabled is not None:
-                    self.sprite_handler.collections = enabled
                 self.load_categories()
+                if enabled is not None:
+                    self.collections = enabled
                 self.update_collection_states()
                 self.load_animations()
             if out_path is not None:
@@ -348,7 +355,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             {
                 "spritePath": str(self.sprite_handler.sprite_path),
                 "openFolders": util.lmap(str, self.root_folders),
-                "enabledCategories": self.sprite_handler.collections,
+                "enabledCategories": self.collections,
                 "outputFolder": str(self.output_path),
             }
         )
