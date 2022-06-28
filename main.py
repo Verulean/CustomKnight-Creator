@@ -371,6 +371,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 class WizardDialog(QDialog, Ui_Dialog):
     def __init__(self, animation: str, parent: MainWindow) -> None:
         super().__init__(parent=parent)
+        self.parent: Callable[[], MainWindow] = cast(Callable[[], MainWindow], self.parent)
         self.setupUi(self)
         self.parent().sprite_handler.load_duplicate_info()
         self.duplicates = self.parent().sprite_handler.get_duplicates(animation)
@@ -378,9 +379,6 @@ class WizardDialog(QDialog, Ui_Dialog):
         self.update_frames(self.duplicatesWidget.currentItem(), None)
         self.update_preview(self.listWidget.currentItem(), None)
         self.update_completion()
-
-    def parent(self) -> MainWindow:
-        return cast(MainWindow, super().parent())
 
     def select_main_copy(self) -> None:
         curr_dupe_menu = self.duplicatesWidget.currentItem()
