@@ -6,7 +6,7 @@ from itertools import starmap
 from pathlib import Path
 from PIL import Image
 from Sprite import Sprite
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union
 import json
 import util
 
@@ -52,7 +52,28 @@ class SpriteHandler:
         # paths to duplicate sprites, by vanilla sprite hash
         self.duplicates: dict[str, set[Path]] = {}
 
-    def __rectify_sprite_path(self, path: Path) -> Path:
+        # base folders needed for each collection
+        self.dependencies: dict[str, list[str]] = {}
+
+    def __rectify_sprite_path(self, path: Union[Path, str]) -> Path:
+        """
+        Returns an absolute path to a sprite.
+
+        Parameters
+        ----------
+        path : Union[Path, str]
+            The absolute OR relative path to a sprite.
+
+        Returns
+        -------
+        Path
+            An absolute path to the given sprite. If `path` was relative, joins
+            it to the base sprite path. Otherwise, returns the given absolute
+            path.
+
+        """
+        if not isinstance(path, Path):
+            path = Path(path)
         if path.is_absolute():
             return path
         return self.sprite_path.joinpath(path)
@@ -74,6 +95,21 @@ class SpriteHandler:
         """
         index = self.__rectify_sprite_path(index)
         return self.__sprites[index]
+
+    def load_dependency_info(self) -> None:
+        """
+        Loads information about base animation folders that use each sprite
+        collection. Used for making sure all sprites in a collection are loaded
+        before packing the sheet (otherwise sheets could be packed without
+        some sprites).
+
+        Returns
+        -------
+        None.
+
+        """
+        with open(self.base_path.joinpath("resources", "sheetsources.json")) as f:
+            self.dependencies = json.load(f)
 
     def load_sprite_info(self, paths: Iterable[Path]) -> list[str]:
         """
@@ -100,8 +136,8 @@ class SpriteHandler:
             path = self.__rectify_sprite_path(path)
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
-            raw_data.append(data)
-            collections.update(data["scollectionname"])
+                raw_data.append(data)
+                collections.update(data["scollectionname"])
 
         self.__sprites = {
             sprite.path: sprite
@@ -219,13 +255,18 @@ class SpriteHandler:
         return [self.__sprites[i].path.name for i in self.__s_by_animation[animation]]
 
     def pack_sheets(
-        self, collections: dict[str, bool], output_path: Optional[Path] = None
+        self,
+        root_folders: set[str],
+        collections: dict[str, bool],
+        output_path: Optional[Path] = None,
     ) -> bool:
         """
         Packs sprites from enabled collections and saves the resulting sheets.
 
         Parameters
         ----------
+        root_folders : set[str]
+            A list of loaded base animation folders.
         collections : dict[str, bool]
             A mapping from collection names to the enabled/disabled state.
         output_path : Optional[Path], optional
@@ -240,6 +281,9 @@ class SpriteHandler:
         """
         if output_path is None:
             output_path = self.base_path
+
+        # set up data structures for sprite dependency checking
+        self.load_dependency_info()
 
         for collection_name, enabled in collections.items():
             if not enabled:
@@ -260,7 +304,21 @@ class SpriteHandler:
             # create sheet image with correct dimensions to fit all sprites
             max_width = util.min_dimension(max_width)
             max_height = util.min_dimension(max_height)
-            out = Image.new("RGBA", (max_width, max_height))
+
+            # check that all base animation folders with sprites in this sheet are loaded
+            missing_roots = [
+                root
+                for root in self.dependencies[collection_name]
+                if root not in root_folders
+            ]
+            if not missing_roots:
+                out = Image.new("RGBA", (max_width, max_height))
+            else:
+                out = Image.open(
+                    self.base_path.joinpath(
+                        "resources", "atlases", collection_name + ".png"
+                    )
+                )
 
             # paste all sprites into sheet
             for sprite_id in self.__s_by_collection[collection_name]:

@@ -389,7 +389,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.filter_animations()
         packed = self.sprite_handler.pack_sheets(
-            self.collections, output_path=self.output_path
+            set(self.root_folders), self.collections, output_path=self.output_path
         )
 
         # check if all sheets packed properly
