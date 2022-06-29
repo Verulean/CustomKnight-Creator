@@ -28,6 +28,7 @@ def generate_collection_sources(
 
 
 if __name__ == "__main__":
+    # set `sprite_path` to a directory containing every base animation folder
     sprite_path = Path(r"C:\Users\sprite\path")
     out_path = Path.cwd().joinpath("resources", "sheetsources.json")
 

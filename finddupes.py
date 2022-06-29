@@ -50,7 +50,7 @@ def generate_duplicate_data(
 
 
 if __name__ == "__main__":
-    # set `in_path` to a directory containing every base animation folder
+    # set `sprite_path` to a directory containing every base animation folder
     sprite_path = Path(r"C:\Users\sprite\path")
     out_path = Path.cwd().joinpath("resources", "duplicatedata.json")
 
