@@ -52,6 +52,11 @@ class SpriteHandler:
         # paths to duplicate sprites, by vanilla sprite hash
         self.duplicates: dict[str, set[Path]] = {}
 
+    def __rectify_sprite_path(self, path: Path) -> Path:
+        if path.is_absolute():
+            return path
+        return self.sprite_path.joinpath(path)
+
     def __getitem__(self, index: Path) -> Sprite:
         """
         Returns the sprite at a given path.
@@ -67,8 +72,7 @@ class SpriteHandler:
             An object representing the sprite at the specified path.
 
         """
-        if not index.is_absolute():
-            index = self.sprite_path.joinpath(index)
+        index = self.__rectify_sprite_path(index)
         return self.__sprites[index]
 
     def load_sprite_info(self, paths: Iterable[Path]) -> list[str]:
@@ -93,8 +97,7 @@ class SpriteHandler:
         raw_data: list[dict[str, list[str]]] = []
         collections = set()
         for path in paths:
-            if not path.is_absolute():
-                path = self.sprite_path.joinpath(path)
+            path = self.__rectify_sprite_path(path)
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
             raw_data.append(data)
@@ -135,7 +138,7 @@ class SpriteHandler:
         """
         info_path = self.base_path.joinpath("resources", "duplicatedata.json")
         self.duplicates = {
-            image_hash: set(map(self.sprite_path.joinpath, dups))
+            image_hash: set(map(self.__rectify_sprite_path, dups))
             for image_hash, dups in json.load(open(info_path, encoding="utf-8")).items()
         }
 
@@ -291,8 +294,7 @@ class SpriteHandler:
         None.
 
         """
-        if not main.is_absolute():
-            main = self.sprite_path.joinpath(main)
+        main = self.__rectify_sprite_path(main)
         sprite = self.__sprites[main]
         main_im = sprite.content
 
@@ -325,6 +327,7 @@ class SpriteHandler:
             followed by vanilla sprites, then finally sprites that are unloaded.
 
         """
+
         def order_by_modification(file: Path) -> int:
             if file not in self.__sprites:
                 return 2
@@ -383,7 +386,7 @@ class SpriteHandler:
             A sequence of paths to sprites that satisfy the search query.
 
         """
-        
+
         for path in self.__s_by_animation[animation_name]:
             if sprite_name in str(path):
                 yield path
