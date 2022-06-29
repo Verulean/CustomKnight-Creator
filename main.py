@@ -369,27 +369,58 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self,
                 "Some duplicate sprites are not modified",
                 "Some duplicate sprites are not modified:\n"
-                "This means that a group of duplicates either is all vanilla,"
+                "This means that a group of duplicates either is all vanilla, "
                 "or the non-vanilla sprites do not match. "
                 "You can continue if you intentionally left duplicate sprites different / "
                 "vanilla. Would you like to continue packing?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 defaultButton=QMessageBox.StandardButton.No,
             )
-            print(button)
             if button == QMessageBox.StandardButton.No:
                 self.infoBox.appendPlainText("Packing cancelled.")
                 self.infoBox.repaint()
                 return
 
-        # update UI and clear animation search bar
-        self.infoBox.appendPlainText("Packing sprites...")
-        self.infoBox.repaint()
-        self.animationFilter.setText("")
+        # check that all necessary sprites are present, warn otherwise
+        mode = self.sprite_handler.DefaultSprite.NONE
+        missing = self.sprite_handler.get_missing_root_folders(
+            set(self.root_folders), self.collections
+        )
+        if missing:
+            button = QMessageBox.warning(
+                self,
+                "Not all sprites are loaded",
+                "Not all sprites are loaded:\n"
+                "This means that a sprite sheet being packed requires sprites "
+                "from an unloaded root folder. Proceeding with missing sprites "
+                "may lead to blank sprites in the packed sheet or may cause the "
+                "sheet to be the wrong size. Would you like to pack using the "
+                "vanilla sprite in place of any missing sprites?\n\n"
+                "Missing root folders:\n"
+                + "\n".join(f"{k}: {', '.join(v)}" for k, v in missing.items()),
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.Ignore
+                | QMessageBox.StandardButton.Abort,
+                defaultButton=QMessageBox.StandardButton.Abort,
+            )
+            if button == QMessageBox.StandardButton.Abort:
+                self.infoBox.appendPlainText("Packing cancelled.")
+                return
+            elif button == QMessageBox.StandardButton.Yes:
+                mode = self.sprite_handler.DefaultSprite.VANILLA
+                self.infoBox.appendPlainText("Packing sprites with vanilla default...")
+            else:
+                self.infoBox.appendPlainText("Packing sprites with no default...")
+                self.infoBox.appendPlainText(
+                    "(Check that resulting sheets are correctly sized)"
+                )
+            self.infoBox.repaint()
+        else:
+            self.infoBox.appendPlainText("Packing sprites...")
+            self.infoBox.repaint()
 
-        self.filter_animations()
         packed = self.sprite_handler.pack_sheets(
-            self.collections, output_path=self.output_path
+            self.collections, output_path=self.output_path, default_mode=mode,
         )
 
         # check if all sheets packed properly

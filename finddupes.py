@@ -1,77 +1,57 @@
-#This was used to create duplicatedata.json. It's not actually used at runtime.
+# This was used to create duplicatedata.json. It's not actually used at runtime.
 
-from PIL import Image
+from collections import defaultdict
+from itertools import starmap
 from pathlib import Path
-#import imagehash
-import os, os.path
+from Sprite import Sprite
 import json
-#from PIL import ImageChops
 
-basepath = "C:/path/to/your/sprites"
-info = []
-images = []
-hashes = []
-for file in Path(basepath).rglob("SpriteInfo.json"):
-    info.append(str(file))
-print("start")
-dataArray = []
-for file in info:
-    io = open(file, "r")
-    data = json.load(io)
-    dataArray.append(data)
-spriteXR = []
-spriteYR = []
-spriteW = []
-spriteH = []
-spriteFlipped = []
-spritePath = []
-for data in dataArray:
-    spriteXR += data["sxr"]
-    spriteYR += data["syr"]
-    spriteW += data["swidth"]
-    spriteH += data["sheight"]
-    spriteFlipped += data["sfilpped"]
-    spritePath += data["spath"]
-hashDict = {}
-for i in range(0, len(spritePath)):
-    im = Image.open(basepath + "/" + spritePath[i])
-    im = im.crop(
-        (
-            spriteXR[i],
-            im.size[1] - spriteYR[i] - spriteH[i],
-            spriteXR[i] + spriteW[i],
-            im.size[1] - spriteYR[i],
-        )
-    )
-    hashValue = hash(tuple(map(tuple, im.getdata())))
-    if hashValue in hashDict:
-        hashDict[hashValue].append(spritePath[i])
-    else:
-        hashDict[hashValue] = [spritePath[i]]
-for k, v in hashDict.items():
-    hashDict[k] = list(v)
-outputfile = open("duplicatedata.json", "w")
-outputfile.write(json.dumps(hashDict))
-outputfile.close()
-out = Image.new("RGBA", (1000, 50000), (0, 0, 0, 0))
-xpos = 0
-ypos = 0
-for hash in hashDict:
-    xpos = 0
-    for path in hashDict[hash]:
-        i = spritePath.index(path)
-        print(xpos)
-        im = Image.open(basepath + "/" + path)
-        im = im.crop(
-            (
-                spriteXR[i],
-                im.size[1] - spriteYR[i] - spriteH[i],
-                spriteXR[i] + spriteW[i],
-                im.size[1] - spriteYR[i],
-            )
-        )
-        out.paste(im, (xpos, ypos))
-        xpos += im.width
-    yheighttest = Image.open(basepath + "/" + hashDict[hash][0])
-    ypos += yheighttest.height
-out.save(basepath + "/output.png")
+
+def generate_duplicate_data(
+    base_path: Path, output_path: Path, *, debug: bool = False
+) -> None:
+    duplicates = defaultdict(list)
+    if debug:
+        print("Starting...")
+
+    # check all SpriteInfo files
+    for info_path in base_path.rglob("SpriteInfo.json"):
+        if debug:
+            print(f"Checking {info_path.parents[1].name}")
+        with open(info_path) as f:
+            data = json.load(f)
+
+            # add each sprite in SpriteInfo.json to its hash bin
+            for sprite in starmap(
+                Sprite,
+                zip(
+                    data["sid"],
+                    data["sx"],
+                    data["sy"],
+                    data["sxr"],
+                    data["syr"],
+                    data["swidth"],
+                    data["sheight"],
+                    data["sfilpped"],
+                    map(base_path.joinpath, data["spath"]),
+                    data["scollectionname"],
+                ),
+            ):
+                image_hash = str(sprite.image_hash)
+                rel_path = str(sprite.path.relative_to(base_path))
+                duplicates[image_hash].append(rel_path)
+
+    # filter out image hashes with only one matching sprite
+    duplicates = {k: v for k, v in duplicates.items() if len(v) > 1}
+    with open(output_path, "w+") as f:
+        json.dump(duplicates, f)
+    if debug:
+        print(f"\nSaved duplicate data to {output_path}.")
+
+
+if __name__ == "__main__":
+    # set `in_path` to a directory containing every base animation folder
+    sprite_path = Path(r"C:\Users\sprite\path")
+    out_path = Path.cwd().joinpath("resources", "duplicatedata.json")
+
+    generate_duplicate_data(sprite_path, out_path, debug=True)

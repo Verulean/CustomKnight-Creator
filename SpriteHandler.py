@@ -2,11 +2,12 @@
 This module implements the sprite management backend for CustomKnight Creator.
 """
 from collections import defaultdict
+from enum import Flag
 from itertools import starmap
 from pathlib import Path
 from PIL import Image
 from Sprite import Sprite
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union
 import json
 import util
 
@@ -18,6 +19,11 @@ class SpriteHandler:
     duplicate management, and packing into sheets of a SpritePacker-style sprite
     directory.
     """
+
+    class DefaultSprite(Flag):
+        NONE = 1
+        VANILLA = 2
+        UPDATE = 4
 
     def __init__(
         self, *, base_path: Optional[Path] = None, sprite_path: Optional[Path] = None
@@ -52,6 +58,32 @@ class SpriteHandler:
         # paths to duplicate sprites, by vanilla sprite hash
         self.duplicates: dict[str, set[Path]] = {}
 
+        # base folders needed for each collection
+        self.dependencies: dict[str, list[str]] = {}
+
+    def __rectify_sprite_path(self, path: Union[Path, str]) -> Path:
+        """
+        Returns an absolute path to a sprite.
+
+        Parameters
+        ----------
+        path : Union[Path, str]
+            The absolute OR relative path to a sprite.
+
+        Returns
+        -------
+        Path
+            An absolute path to the given sprite. If `path` was relative, joins
+            it to the base sprite path. Otherwise, returns the given absolute
+            path.
+
+        """
+        if not isinstance(path, Path):
+            path = Path(path)
+        if path.is_absolute():
+            return path
+        return self.sprite_path.joinpath(path)
+
     def __getitem__(self, index: Path) -> Sprite:
         """
         Returns the sprite at a given path.
@@ -67,9 +99,23 @@ class SpriteHandler:
             An object representing the sprite at the specified path.
 
         """
-        if not index.is_absolute():
-            index = self.sprite_path.joinpath(index)
+        index = self.__rectify_sprite_path(index)
         return self.__sprites[index]
+
+    def load_dependency_info(self) -> None:
+        """
+        Loads information about base animation folders that use each sprite
+        collection. Used for making sure all sprites in a collection are loaded
+        before packing the sheet (otherwise sheets could be packed without
+        some sprites).
+
+        Returns
+        -------
+        None.
+
+        """
+        with open(self.base_path.joinpath("resources", "sheetsources.json")) as f:
+            self.dependencies = json.load(f)
 
     def load_sprite_info(self, paths: Iterable[Path]) -> list[str]:
         """
@@ -93,12 +139,11 @@ class SpriteHandler:
         raw_data: list[dict[str, list[str]]] = []
         collections = set()
         for path in paths:
-            if not path.is_absolute():
-                path = self.sprite_path.joinpath(path)
+            path = self.__rectify_sprite_path(path)
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
-            raw_data.append(data)
-            collections.update(data["scollectionname"])
+                raw_data.append(data)
+                collections.update(data["scollectionname"])
 
         self.__sprites = {
             sprite.path: sprite
@@ -135,7 +180,7 @@ class SpriteHandler:
         """
         info_path = self.base_path.joinpath("resources", "duplicatedata.json")
         self.duplicates = {
-            image_hash: set(map(self.sprite_path.joinpath, dups))
+            image_hash: set(map(self.__rectify_sprite_path, dups))
             for image_hash, dups in json.load(open(info_path, encoding="utf-8")).items()
         }
 
@@ -215,8 +260,48 @@ class SpriteHandler:
         """
         return [self.__sprites[i].path.name for i in self.__s_by_animation[animation]]
 
+    def get_missing_root_folders(
+        self, root_folders: set[str], collections: dict[str, bool]
+    ) -> dict[str, list[str]]:
+        """
+        Returns a mapping of collections to unloaded root folders that contain
+        sprites in those collections.
+
+        Parameters
+        ----------
+        root_folders : set[str]
+            The currently loaded base animation folders.
+        collections : dict[str, bool]
+            A mapping representing the state of each loaded collection.
+
+        Returns
+        -------
+        missing : dict[str, list[str]]
+            A dictionary with keys as collection names and values as lists of
+            names of root folders that are unloaded and contain sprites in the
+            collection. Only contains collections with at least one unloaded
+            root folder.
+
+        """
+        self.load_dependency_info()
+        missing_folders = dict()
+        for collection_name, enabled in collections.items():
+            if not enabled:
+                continue
+            missing = [
+                root
+                for root in self.dependencies[collection_name]
+                if root not in root_folders
+            ]
+            if missing:
+                missing_folders[collection_name] = missing
+        return missing_folders
+
     def pack_sheets(
-        self, collections: dict[str, bool], output_path: Optional[Path] = None
+        self,
+        collections: dict[str, bool],
+        output_path: Optional[Path] = None,
+        default_mode: DefaultSprite = DefaultSprite.NONE,
     ) -> bool:
         """
         Packs sprites from enabled collections and saves the resulting sheets.
@@ -228,6 +313,11 @@ class SpriteHandler:
         output_path : Optional[Path], optional
             The output directory to save to. If `output_path` is None, saves
             to `base_path`. The default is None.
+        default_mode : DefaultSprite
+            The fallback mode. NONE packs only the loaded sprites, VANILLA packs
+            starting from a vanilla sprite sheet, and UPDATE packs starting from
+            the corresponding sheet in the output directory. VANILLA and UPDATE
+            modes will default to NONE if the source sprite sheet does not exist.
 
         Returns
         -------
@@ -242,22 +332,38 @@ class SpriteHandler:
             if not enabled:
                 continue
 
-            # calculate maximum dimensions of the group of packed sprites
-            max_width = 0
-            max_height = 0
-            for sprite_id in self.__s_by_collection[collection_name]:
-                sprite = self.__sprites[sprite_id]
-                if sprite.flipped:
-                    max_width = max(max_width, sprite.x + sprite.h)
-                    max_height = max(max_height, sprite.y + sprite.w)
-                else:
-                    max_width = max(max_width, sprite.x + sprite.w)
-                    max_height = max(max_height, sprite.y)
+            file_name = collection_name + ".png"
 
-            # create sheet image with correct dimensions to fit all sprites
-            max_width = util.min_dimension(max_width)
-            max_height = util.min_dimension(max_height)
-            out = Image.new("RGBA", (max_width, max_height))
+            # create initial sprite sheet
+            out: Optional[Image.Image] = None
+            if self.DefaultSprite.UPDATE in default_mode:
+                sheet_path = output_path.joinpath(file_name)
+                if sheet_path.exists():
+                    out = Image.open(sheet_path)
+
+            if out is None and self.DefaultSprite.VANILLA in default_mode:
+                sheet_path = self.base_path.joinpath("resources", "atlases", file_name)
+                if sheet_path.exists():
+                    out = Image.open(sheet_path)
+
+            if out is None:
+                # calculate sprite sheet dimensions
+                max_width = 0
+                max_height = 0
+                for sprite_id in self.__s_by_collection[collection_name]:
+                    sprite = self.__sprites[sprite_id]
+                    if sprite.flipped:
+                        max_width = max(max_width, sprite.x + sprite.h)
+                        max_height = max(max_height, sprite.y + sprite.w)
+                    else:
+                        max_width = max(max_width, sprite.x + sprite.w)
+                        max_height = max(max_height, sprite.y)
+
+                max_width = util.min_dimension(max_width)
+                max_height = util.min_dimension(max_height)
+
+                # create blank sheet with calculated size
+                out = Image.new("RGBA", (max_width, max_height))
 
             # paste all sprites into sheet
             for sprite_id in self.__s_by_collection[collection_name]:
@@ -291,8 +397,7 @@ class SpriteHandler:
         None.
 
         """
-        if not main.is_absolute():
-            main = self.sprite_path.joinpath(main)
+        main = self.__rectify_sprite_path(main)
         sprite = self.__sprites[main]
         main_im = sprite.content
 
@@ -325,6 +430,7 @@ class SpriteHandler:
             followed by vanilla sprites, then finally sprites that are unloaded.
 
         """
+
         def order_by_modification(file: Path) -> int:
             if file not in self.__sprites:
                 return 2
@@ -383,7 +489,7 @@ class SpriteHandler:
             A sequence of paths to sprites that satisfy the search query.
 
         """
-        
+
         for path in self.__s_by_animation[animation_name]:
             if sprite_name in str(path):
                 yield path
