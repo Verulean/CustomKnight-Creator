@@ -376,7 +376,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 defaultButton=QMessageBox.StandardButton.No,
             )
-            print(button)
             if button == QMessageBox.StandardButton.No:
                 self.infoBox.appendPlainText("Packing cancelled.")
                 self.infoBox.repaint()
